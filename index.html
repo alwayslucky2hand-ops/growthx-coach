@@ -268,7 +268,6 @@
   
   <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-forum')" id="nav-tab-forum"><i data-lucide="message-circle"></i> <span>敲碗解惑</span></a></li>
   
-  <!-- 🌟 第三個位置：實戰部落格 (移到這裡來囉！) -->
   <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-blog')" id="nav-tab-blog"><i data-lucide="book-open"></i> <span>實戰部落格</span></a></li>
   
   <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-gem')" id="nav-tab-gem"><i data-lucide="cpu"></i> <span>AI 助教</span></a></li>
@@ -307,22 +306,60 @@
       </div>
 
       <div class="vc-card">
-        <div class="vc-badge"><i data-lucide="zap" style="width:14px;"></i> 賦能陪跑桌 V.C. TABLE</div>
-        <div class="d-flex justify-content-between align-items-end mb-4">
-          <div>
-            <p class="text-white-50 m-0 mb-1" style="font-size: 14px;">可用剩餘次數 (無期限)</p>
-            <h2 class="vc-count" id="vcUsesDisplay">0</h2>
+        <div class="vc-badge"><i data-lucide="award" style="width:14px;"></i> 專屬 V.C. CARD</div>
+        <p class="text-white-50 small mb-4">身為 Venture Coder，您可透過推薦學員累積 V.C. Point 點數，兌換進階指導服務。</p>
+        
+        <div class="row text-center mb-4 pb-4 border-bottom border-secondary">
+          <div class="col-4 border-end border-secondary">
+            <h4 class="fw-bold m-0 text-white" id="basicRefDisplay">0</h4>
+            <span class="text-white-50" style="font-size:12px;">基礎課推薦</span>
           </div>
-          <button class="btn-vc w-auto px-4" onclick="openSignatureModal()"><i data-lucide="pen-tool" style="width:18px;"></i> 我要使用</button>
+          <div class="col-4 border-end border-secondary">
+            <h4 class="fw-bold m-0 text-white" id="advRefDisplay">0</h4>
+            <span class="text-white-50" style="font-size:12px;">進階課推薦</span>
+          </div>
+          <div class="col-4">
+            <h2 class="vc-count text-accent" id="vcUsesDisplay" style="font-size: 32px;">0</h2>
+            <span class="text-accent fw-bold" style="font-size:12px;">V.C. Point</span>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <span class="text-white-50" style="font-size: 14px;"><i data-lucide="info" style="width:16px;"></i> 1 點可兌換 Review / Table / Talk 一次</span>
+          <button class="btn-vc w-auto px-4" onclick="openSignatureModal()"><i data-lucide="pen-tool" style="width:18px;"></i> 使用點數</button>
         </div>
         
-        <div class="d-flex gap-3 mb-4 border-top border-secondary pt-4 mt-4">
-          <button class="btn-outline text-white border-secondary w-100" onclick="openTopUpModal()"><i data-lucide="credit-card" style="width:16px;"></i> 方案儲值</button>
+        <div class="d-flex gap-3 mb-4">
+          <button class="btn-outline text-white border-secondary w-100" onclick="openTopUpModal()"><i data-lucide="credit-card" style="width:16px;"></i> 點數儲值</button>
         </div>
         
-        <div class="d-flex justify-content-between align-items-center" style="font-size: 13px; color: #aaa;">
+        <div class="d-flex justify-content-between align-items-center mb-4" style="font-size: 13px; color: #aaa;">
           <span>上次儲值日：<strong id="vcLastTopUpDate" class="text-white">無</strong></span>
           <span>上次金額：<strong id="vcLastTopUpAmount" class="text-white">$0</strong></span>
+        </div>
+
+        <div class="p-3 mt-2 rounded" style="background: rgba(0,0,0,0.3); border: 1px dashed rgba(255,255,255,0.2);">
+          <h6 class="fw-bold text-white mb-3" style="font-size:14px;"><i data-lucide="link" style="width:16px; margin-right:4px;"></i>您的專屬課程推薦連結 (Github Pages)</h6>
+          
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-white-50" style="font-size:12px;">基礎課程 ($6000/人) - 成功報名 +1 V.C. Point</span>
+            </div>
+            <div class="d-flex gap-2">
+              <input type="text" id="linkBasic" class="form-control bg-dark text-white border-secondary" style="font-size:12px; padding:8px;" readonly>
+              <button class="btn-brand px-3 py-1 w-auto" style="font-size:12px;" onclick="copyContent('linkBasic', this, true)"><i data-lucide="copy" style="width:14px;"></i> 複製</button>
+            </div>
+          </div>
+          
+          <div>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="text-white-50" style="font-size:12px;">進階課程 ($9000/人) - 成功報名 +1 V.C. Point</span>
+            </div>
+            <div class="d-flex gap-2">
+              <input type="text" id="linkAdv" class="form-control bg-dark text-white border-secondary" style="font-size:12px; padding:8px;" readonly>
+              <button class="btn-brand px-3 py-1 w-auto" style="font-size:12px;" onclick="copyContent('linkAdv', this, true)"><i data-lucide="copy" style="width:14px;"></i> 複製</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -536,18 +573,18 @@
 
 <div id="topupModal" class="modal-overlay">
   <div class="modal-content text-center">
-    <h4 class="fw-bold mb-1">V.C. TABLE 儲值方案</h4>
-    <p class="text-muted small mb-4">付款完成後次數將立即無縫生效</p>
+    <h4 class="fw-bold mb-1">V.C. Point 儲值方案</h4>
+    <p class="text-muted small mb-4">付款完成後點數將立即無縫生效</p>
     
     <div class="form-group-stack">
       <button class="btn-outline w-100" style="padding: 24px; flex-direction: column; gap: 8px; border: 2px solid var(--border);" onclick="executeTopUp(600)">
         <div class="fw-bold" style="font-size: 20px; color: var(--primary);">$600 TWD</div>
-        <div class="text-muted small">賦能陪跑桌 1 次</div>
+        <div class="text-muted small">獲得 1 點 V.C. Point</div>
       </button>
       
       <button class="btn-outline w-100" style="padding: 24px; flex-direction: column; gap: 8px; border: 2px solid var(--accent); background: rgba(0,102,204,0.03);" onclick="executeTopUp(3000)">
         <div class="fw-bold" style="font-size: 20px; color: var(--accent);">$3,000 TWD</div>
-        <div class="text-muted small fw-bold text-accent">賦能陪跑桌 6 次 (最划算)</div>
+        <div class="text-muted small fw-bold text-accent">獲得 6 點 V.C. Point (最划算)</div>
       </button>
     </div>
     
@@ -558,18 +595,26 @@
 <div id="signatureModal" class="modal-overlay">
   <div class="modal-content" style="max-width: 800px; width: 95%;">
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h5 class="fw-bold m-0"><i data-lucide="pen-tool" style="width: 20px; margin-right: 8px;"></i> V.C. TABLE 教練確認簽名</h5>
-      <span class="badge bg-dark">將扣除 1 次額度</span>
+      <h5 class="fw-bold m-0"><i data-lucide="pen-tool" style="width: 20px; margin-right: 8px;"></i> V.C. Coach 服務簽名核銷</h5>
+      <span class="badge bg-dark">將扣除 1 點 V.C. Point</span>
     </div>
-    <p class="text-muted small mb-3">請由教練 (特洛伊) 於下方全螢幕面板簽名確認本次陪跑指導。</p>
+    <p class="text-muted small mb-3">請選擇本次使用的服務，並由教練 (V.C. Coach) 於下方簽名確認。</p>
     
-    <div class="sig-container">
+    <div class="mb-3">
+      <select id="vcServiceType" class="form-control fw-bold" style="color: var(--accent);">
+        <option value="V.C. Review">V.C. Review (基礎課程複訓 - 1堂)</option>
+        <option value="V.C. Table">V.C. Table (線下賦能輔導桌 - 0~3hr)</option>
+        <option value="V.C. Talk">V.C. Talk (線上賦能諮詢 - 1hr)</option>
+      </select>
+    </div>
+    
+    <div class="sig-container" style="height: 40vh;">
       <canvas id="sigCanvas" class="sig-canvas-style"></canvas>
       <div id="sigDateStamp" class="sig-date-stamp"></div>
     </div>
     
     <div class="d-flex gap-3">
-      <button class="btn-outline" onclick="clearSignature()"><i data-lucide="rotate-ccw" style="width:16px;"></i> 清空重簽</button>
+      <button class="btn-outline" onclick="clearSignature()"><i data-lucide="rotate-ccw" style="width:16px;"></i> 清空</button>
       <button class="btn-outline border-0 text-muted" onclick="closeModals()">取消</button>
       <button class="btn-brand" id="btnConfirmSig" onclick="confirmSignature()"><i data-lucide="check" style="width:16px;"></i> 確認核銷</button>
     </div>
@@ -741,14 +786,16 @@
     ctx.font = "14px monospace"; ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillText(document.getElementById('sigDateStamp').innerText, canvas.offsetWidth - 160, canvas.offsetHeight - 20);
     const sigData = canvas.toDataURL('image/png');
 
-    // 樂觀更新 V.C. TABLE 次數與明細
+    const selectedService = document.getElementById('vcServiceType').value;
+
+    // 樂觀更新 V.C. CARD 點數與明細
     const vcUsesEl = document.getElementById('vcUsesDisplay');
     let currentUses = parseInt(vcUsesEl.innerText) || 0;
     if (currentUses > 0) {
         vcUsesEl.innerText = currentUses - 1;
         const vcLogBody = document.getElementById('vcLogTableBody');
         const today = new Date().toLocaleString('zh-TW', {hour12:false}).split(' ')[0];
-        const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-primary">消費</span></td><td>$0</td><td class="fw-bold text-danger">-1</td><td class="fw-bold">${currentUses - 1} 次</td><td><span class="badge bg-dark">處理中...</span></td></tr>`;
+        const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-primary">使用 (${selectedService})</span></td><td>$0</td><td class="fw-bold text-danger">-1</td><td class="fw-bold">${currentUses - 1} 點</td><td><span class="badge bg-dark">處理中...</span></td></tr>`;
         if(vcLogBody.innerHTML.includes('目前尚無交易明細')) vcLogBody.innerHTML = '';
         vcLogBody.innerHTML = fakeRow + vcLogBody.innerHTML;
     }
@@ -756,7 +803,7 @@
     showToast("核銷已送出", "success"); closeModals();
     btn.disabled = false; btn.innerHTML = '<i data-lucide="check" style="width:16px;"></i> 確認核銷'; lucide.createIcons();
 
-    api({ action: "consumeVCTable", email: currentUser.email, signatureBase64: sigData }).catch(e => showToast("核銷失敗，請重新整理", "error")); 
+    api({ action: "consumeVCTable", email: currentUser.email, signatureBase64: sigData, serviceType: selectedService }).catch(e => showToast("核銷失敗，請重新整理", "error")); 
   }
 
   function openTopUpModal() { document.getElementById('topupModal').classList.add('active'); }
@@ -774,7 +821,7 @@
       
       const vcLogBody = document.getElementById('vcLogTableBody');
       const today = new Date().toLocaleString('zh-TW', {hour12:false}).split(' ')[0];
-      const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-success">儲值</span></td><td>$${amount}</td><td class="fw-bold text-success">+${added}</td><td class="fw-bold">${currentUses + added} 次</td><td>-</td></tr>`;
+      const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-success">儲值</span></td><td>$${amount}</td><td class="fw-bold text-success">+${added}</td><td class="fw-bold">${currentUses + added} 點</td><td>-</td></tr>`;
       if(vcLogBody.innerHTML.includes('目前尚無交易明細')) vcLogBody.innerHTML = '';
       vcLogBody.innerHTML = fakeRow + vcLogBody.innerHTML;
 
@@ -830,8 +877,8 @@
   }
   renderGemMatrix();
 
-  function copyContent(elementId, btn) {
-    const el = document.getElementById(elementId); let text = el.innerText;
+  function copyContent(elementId, btn, isInput = false) {
+    const el = document.getElementById(elementId); let text = isInput ? el.value : el.innerText;
     navigator.clipboard.writeText(text).then(() => { const originalHtml = btn.innerHTML; btn.innerHTML = '<i data-lucide="check" style="width:14px;"></i> 已複製'; lucide.createIcons(); setTimeout(() => { btn.innerHTML = originalHtml; lucide.createIcons(); }, 2000); });
   }
 
@@ -941,9 +988,18 @@
       document.getElementById('vcLastTopUpDate').innerText = p.lastTopUpDate;
       document.getElementById('vcLastTopUpAmount').innerText = `$${p.lastTopUpAmount}`;
 
+      // 綁定推薦人數
+      document.getElementById('basicRefDisplay').innerText = p.basicRef || 0;
+      document.getElementById('advRefDisplay').innerText = p.advRef || 0;
+      
+      // 產生專屬 GitHub Pages 購買連結
+      const userCode = (p.email || currentUser.email).split('@')[0];
+      document.getElementById('linkBasic').value = `https://troy-gx.github.io/buy?plan=basic&ref=${userCode}`;
+      document.getElementById('linkAdv').value = `https://troy-gx.github.io/buy?plan=advanced&ref=${userCode}`;
+
       const vcLogBody = document.getElementById('vcLogTableBody');
       if (data.vcLogs && data.vcLogs.length > 0) {
-        vcLogBody.innerHTML = data.vcLogs.map(log => `<tr><td class="text-muted" style="font-family: monospace;">${log.date}</td><td><span class="badge ${log.type === '儲值' ? 'bg-success' : 'bg-primary'}">${log.type}</span></td><td>$${log.amount}</td><td class="fw-bold ${parseInt(log.change) > 0 ? 'text-success' : 'text-danger'}">${log.change}</td><td class="fw-bold">${log.balance} 次</td><td>${log.note ? `<a href="${log.note}" target="_blank" class="btn-outline" style="padding:4px 8px; font-size:12px;"><i data-lucide="image" style="width:12px;"></i> 簽名憑證</a>` : '-'}</td></tr>`).join('');
+        vcLogBody.innerHTML = data.vcLogs.map(log => `<tr><td class="text-muted" style="font-family: monospace;">${log.date}</td><td><span class="badge ${log.type === '儲值' ? 'bg-success' : 'bg-primary'}">${log.type}</span></td><td>$${log.amount}</td><td class="fw-bold ${parseInt(log.change) > 0 ? 'text-success' : 'text-danger'}">${log.change}</td><td class="fw-bold">${log.balance} 點</td><td>${log.note ? `<a href="${log.note}" target="_blank" class="btn-outline" style="padding:4px 8px; font-size:12px;"><i data-lucide="image" style="width:12px;"></i> 簽名憑證</a>` : '-'}</td></tr>`).join('');
       } else { vcLogBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted p-4">目前尚無交易明細</td></tr>'; }
 
       const appsHtml = (data.webApps || []).map(app => `<div class="app-card"><h6 class="fw-bold m-0">${app.name}</h6><p class="text-muted small m-0">${app.desc}</p><a href="${app.url}" target="_blank" class="btn-outline mt-2"><i data-lucide="external-link" style="width:14px;"></i> 開啟應用</a></div>`).join('');
