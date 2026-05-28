@@ -990,7 +990,18 @@
       
       if (p.paymentUrl) document.getElementById('dynamicPaymentBtn').href = p.paymentUrl;
       document.getElementById('vcUsesDisplay').innerText = p.vcUses;
-      document.getElementById('vcLastTopUpDate').innerText = p.lastTopUpDate;
+      
+      // 🌟 將 ISO 日期字串轉換為 yyyy/MM/dd 格式
+      let formattedDate = p.lastTopUpDate;
+      if (p.lastTopUpDate && p.lastTopUpDate !== '尚未儲值' && p.lastTopUpDate.includes('T')) {
+          const d = new Date(p.lastTopUpDate);
+          const yyyy = d.getFullYear();
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const dd = String(d.getDate()).padStart(2, '0');
+          formattedDate = `${yyyy}/${mm}/${dd}`;
+      }
+      document.getElementById('vcLastTopUpDate').innerText = formattedDate;
+      
       document.getElementById('vcLastTopUpAmount').innerText = `$${p.lastTopUpAmount}`;
 
       // 綁定推薦人數
