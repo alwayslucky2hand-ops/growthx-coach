@@ -250,6 +250,12 @@
     btn.disabled = true;
     btn.innerHTML = '建立訂單中...';
 
+    // 取得前端算好的總金額
+    let qty = parseInt(document.getElementById('quantity').value) || 1;
+    let subtotal = unitPrice * qty;
+    let tax = document.getElementById('invYes').checked ? Math.round(subtotal * 0.05) : 0;
+    let total = subtotal + tax;
+
     const payload = {
       action: "createCourseOrder",
       plan: plan,
@@ -262,7 +268,8 @@
       needsInvoice: document.getElementById('invYes').checked,
       taxId: document.getElementById('taxId').value,
       selectedDate: document.getElementById('courseDate').value,
-      quantity: document.getElementById('quantity').value
+      quantity: document.getElementById('quantity').value,
+      totalAmount: total // 🌟 精確讀取前端累加的最後金額
     };
 
     try {
@@ -272,15 +279,10 @@
       });
       const res = await response.json();
       
-      if (res.status === 'success') {
-         // 實務上這裡可以導向黑貓 PAY
-         // form.action = 'https://blackcatpay.url...'; form.submit();
+      if (res.status === 'success' && res.data.url) {
+         // 🌟 成功拿到黑貓 PAY 給的網址，直接跳轉！
          alert(`訂單建立成功！單號：${res.data.orderId}\n金額：$${res.data.totalAmount.toLocaleString()}\n即將為您跳轉至黑貓 PAY 金流頁面...`);
-         
-         // 模擬跳轉動作
-         setTimeout(() => {
-            window.location.href = "https://www.ccat.com.tw/"; // 假定黑貓 PAY 網址
-         }, 1500);
+         window.location.href = res.data.url; 
       } else {
          alert("建立訂單失敗：" + res.message);
          btn.disabled = false;
