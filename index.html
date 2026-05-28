@@ -265,11 +265,13 @@
     </div>
     <ul class="nav-menu">
       <li class="nav-item"><a class="nav-link active" onclick="switchTab('tab-member')" id="nav-tab-member"><i data-lucide="user"></i> <span>會員中心</span></a></li>
+      
+      <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-forum')" id="nav-tab-forum"><i data-lucide="message-circle"></i> <span>敲碗解惑</span></a></li>
+      
       <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-gem')" id="nav-tab-gem"><i data-lucide="cpu"></i> <span>AI 助教</span></a></li>
       <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-coach')" id="nav-tab-coach"><i data-lucide="video"></i> <span>陪跑日誌</span></a></li>
       <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-school')" id="nav-tab-school"><i data-lucide="graduation-cap"></i> <span>V.C.小學堂</span></a></li>
       <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-blog')" id="nav-tab-blog"><i data-lucide="book-open"></i> <span>實戰部落格</span></a></li>
-      <li class="nav-item"><a class="nav-link" onclick="switchTab('tab-forum')" id="nav-tab-forum"><i data-lucide="message-circle"></i> <span>論壇交流</span></a></li>
     </ul>
     <div class="nav-footer mt-auto">
       <button class="btn-outline w-100" style="border:none; background:var(--bg);" onclick="logout()"><i data-lucide="log-out" style="width:16px;"></i> 登出系統</button>
@@ -728,26 +730,77 @@
   function clearSignature() { ctx.clearRect(0, 0, canvas.width, canvas.height); }
   function closeModals() { document.querySelectorAll('.modal-overlay').forEach(el => el.classList.remove('active')); clearSignature(); }
 
-  async function confirmSignature() {
+  function confirmSignature() {
     const blank = document.createElement('canvas'); blank.width = canvas.width; blank.height = canvas.height;
     if(canvas.toDataURL() === blank.toDataURL()) { return showToast("請教練先於上方簽名確認", "warning"); }
 
     const btn = document.getElementById('btnConfirmSig'); btn.disabled = true; btn.innerHTML = '<i data-lucide="loader" class="spin" style="width:16px;"></i> 核銷中...'; lucide.createIcons();
-    try {
-      ctx.font = "14px monospace"; ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillText(document.getElementById('sigDateStamp').innerText, canvas.offsetWidth - 160, canvas.offsetHeight - 20);
-      const sigData = canvas.toDataURL('image/png');
-      const msg = await api({ action: "consumeVCTable", email: currentUser.email, signatureBase64: sigData });
-      showToast(msg, "success"); closeModals(); loadDashboard(); 
-    } catch(e) { showToast(e.message, "error"); } 
-    finally { btn.disabled = false; btn.innerHTML = '<i data-lucide="check" style="width:16px;"></i> 確認核銷'; lucide.createIcons(); }
+    
+    ctx.font = "14px monospace"; ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillText(document.getElementById('sigDateStamp').innerText, canvas.offsetWidth - 160, canvas.offsetHeight - 20);
+    const sigData = canvas.toDataURL('image/png');
+
+    // 樂觀更新 V.C. TABLE 次數與明細
+    const vcUsesEl = document.getElementById('vcUsesDisplay');
+    let currentUses = parseInt(vcUsesEl.innerText) || 0;
+    if (currentUses > 0) {
+        vcUsesEl.innerText = currentUses - 1;
+        const vcLogBody = document.getElementById('vcLogTableBody');
+        const today = new Date().toLocaleString('zh-TW', {hour12:false}).split(' ')[0];
+        const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-primary">消費</span></td><td>$0</td><td class="fw-bold text-danger">-1</td><td class="fw-bold">${currentUses - 1} 次</td><td><span class="badge bg-dark">處理中...</span></td></tr>`;
+        if(vcLogBody.innerHTML.includes('目前尚無交易明細')) vcLogBody.innerHTML = '';
+        vcLogBody.innerHTML = fakeRow + vcLogBody.innerHTML;
+    }
+    
+    showToast("核銷已送出", "success"); closeModals();
+    btn.disabled = false; btn.innerHTML = '<i data-lucide="check" style="width:16px;"></i> 確認核銷'; lucide.createIcons();
+
+    api({ action: "consumeVCTable", email: currentUser.email, signatureBase64: sigData }).catch(e => showToast("核銷失敗，請重新整理", "error")); 
   }
 
   function openTopUpModal() { document.getElementById('topupModal').classList.add('active'); }
-  async function executeTopUp(amount) {
-    showUIConfirm("確認模擬儲值", `是否確定要模擬進行 $${amount} 儲值？\n(正式環境將串接黑貓PAY金流跳轉)`, "確定儲值", "var(--accent)", async () => {
-      closeModals(); showToast("連線至伺服器處理中...", "success");
-      try { const msg = await api({ action: "simulateTopUp", email: currentUser.email, amount: amount }); showToast(msg, "success"); loadDashboard(); } catch(e) { showToast(e.message, "error"); }
+  
+  function executeTopUp(amount) {
+    showUIConfirm("確認模擬儲值", `是否確定要模擬進行 $${amount} 儲值？\n(正式環境將串接黑貓PAY金流跳轉)`, "確定儲值", "var(--accent)", () => {
+      closeModals(); 
+      // 樂觀更新儲值狀態
+      const vcUsesEl = document.getElementById('vcUsesDisplay');
+      let currentUses = parseInt(vcUsesEl.innerText) || 0;
+      let added = amount === 600 ? 1 : 6;
+      vcUsesEl.innerText = currentUses + added;
+      document.getElementById('vcLastTopUpDate').innerText = new Date().toLocaleString('zh-TW', {hour12:false}).split(' ')[0];
+      document.getElementById('vcLastTopUpAmount').innerText = `$${amount}`;
+      
+      const vcLogBody = document.getElementById('vcLogTableBody');
+      const today = new Date().toLocaleString('zh-TW', {hour12:false}).split(' ')[0];
+      const fakeRow = `<tr><td class="text-muted" style="font-family: monospace;">${today}</td><td><span class="badge bg-success">儲值</span></td><td>$${amount}</td><td class="fw-bold text-success">+${added}</td><td class="fw-bold">${currentUses + added} 次</td><td>-</td></tr>`;
+      if(vcLogBody.innerHTML.includes('目前尚無交易明細')) vcLogBody.innerHTML = '';
+      vcLogBody.innerHTML = fakeRow + vcLogBody.innerHTML;
+
+      showToast("儲值成功！", "success");
+      api({ action: "simulateTopUp", email: currentUser.email, amount: amount }).catch(e => showToast(e.message, "error"));
     });
+  }
+
+  function submitWebApp() {
+      const name = document.getElementById('appName').value.trim();
+      const desc = document.getElementById('appDesc').value.trim();
+      const url = document.getElementById('appUrl').value.trim();
+      if(!name || !url) return showToast("名稱與網址為必填", "warning");
+
+      // 樂觀更新應用程式清單
+      const appsContainer = document.getElementById('webAppsContainer');
+      const appHtml = `<div class="app-card"><h6 class="fw-bold m-0">${name}</h6><p class="text-muted small m-0">${desc}</p><a href="${url}" target="_blank" class="btn-outline mt-2"><i data-lucide="external-link" style="width:14px;"></i> 開啟應用</a></div>`;
+      if(appsContainer.innerHTML.includes('尚未登錄任何數位資產')) appsContainer.innerHTML = '';
+      appsContainer.innerHTML += appHtml;
+      lucide.createIcons();
+      
+      document.getElementById('appName').value = '';
+      document.getElementById('appDesc').value = '';
+      document.getElementById('appUrl').value = '';
+      document.getElementById('addAppForm').style.display = 'none';
+      showToast("資產登錄成功", "success");
+      
+      api({ action: "addWebApp", email: currentUser.email, name: name, desc: desc, url: url }).catch(e => console.error(e));
   }
 
   function renderGemMatrix() {
@@ -798,12 +851,12 @@
     }
   }
 
+  // 背景同步函式保留以備不時之需，但在樂觀 UI 操作中已將其靜默呼叫拔除以確保重整前皆為快取資料
   async function backgroundSync() {
     try {
       const data = await api({ action: "getDashboardData", email: currentUser.email, role: currentUser.role });
       globalFeedData = data.posts || [];
       globalSchoolFeedData = data.schoolFeed || [];
-      // 🔽 同步論壇資料
       forumData = data.forumPosts || [];
     } catch(e) { console.error("背景同步失敗", e); }
   }
@@ -857,7 +910,6 @@
     
     if(tabId === 'tab-school') filterSchoolFeed();
 
-    // 🔽 論壇預載動作
     if(tabId === 'tab-forum') {
       if(!document.getElementById('f_nickname').value && currentUser.name) {
           document.getElementById('f_nickname').value = currentUser.name;
@@ -901,7 +953,6 @@
       globalSchoolFeedData = data.schoolFeed || [];
       filterSchoolFeed(); 
 
-      // 🔽 寫入論壇資料並渲染
       forumData = data.forumPosts || [];
       renderForumTypeFilter();
       renderForumPosts();
@@ -1081,18 +1132,53 @@
     
     log("整合背景任務，執行魔術師大腦封裝...");
     while(activeProcessingTasks.size > 0) { await Promise.all(Array.from(activeProcessingTasks)); }
-    log("等待雲端試算表安全同步...");
+    log("資料封裝完成，即刻樂觀顯示於日誌面板...");
     
     try {
       sessionTranscripts.sort((a, b) => a.index - b.index);
-      await api({ action: "finalizePost", rowIndex: postData.rowIndex, email: currentUser.email, role: currentUser.role, isReply: postData.isReply, urls: sessionUrls, transcripts: sessionTranscripts });
+      const fullTranscript = sessionTranscripts.map(t => t.text).join('\n');
+      const fullUrls = sessionUrls.join(',');
+      const timestamp = new Date().toLocaleString('zh-TW', {hour12:false});
+
+      // 樂觀更新陪跑日誌
+      if (postData.isReply || currentReplyParentId) {
+          const parentId = currentReplyParentId || postData.parentId;
+          const parentPost = globalFeedData.find(p => p.PostID === parentId);
+          if (parentPost) {
+              if (currentUser.role === '教練') {
+                  parentPost.Coach_Reply = (parentPost.Coach_Reply ? parentPost.Coach_Reply + "\n\n" : "") + "【影音回覆】\n" + fullTranscript;
+                  parentPost.Status = "已解決";
+              } else {
+                  parentPost.Transcript = (parentPost.Transcript ? parentPost.Transcript + "\n\n" : "") + "【追加追問】\n" + fullTranscript;
+                  parentPost.Status = "呼叫教練";
+              }
+              parentPost.VideoURLs = (parentPost.VideoURLs ? parentPost.VideoURLs + "," : "") + fullUrls;
+          }
+      } else {
+          const newPost = {
+              PostID: "TEMP_POST_" + Date.now(),
+              Role: currentUser.role,
+              Email: currentUser.email,
+              Status: currentUser.role === '教練' ? "完成" : "尚未解決",
+              Timestamp: timestamp,
+              Transcript: fullTranscript,
+              AI_Summary: "【系統正在進行結構分析中...】\n" + fullTranscript,
+              VideoURLs: fullUrls,
+              Coach_Reply: ""
+          };
+          globalFeedData.unshift(newPost);
+      }
+      
       showToast(currentReplyParentId ? "影音已成功追加回覆！" : "陪跑日誌上傳成功！", "success");
       
       currentReplyParentId = ""; 
       document.getElementById('recordUI').style.display = 'none';
       document.getElementById('triggerRecordBox').style.display = 'block';
       document.getElementById('playerControls').style.display = 'flex'; 
-      backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage));
+      
+      renderFeed(globalFeedData, 1);
+      
+      api({ action: "finalizePost", rowIndex: postData.rowIndex, email: currentUser.email, role: currentUser.role, isReply: postData.isReply, urls: sessionUrls, transcripts: sessionTranscripts }).catch(e => console.error(e));
     } catch(e) { showToast("封裝結算異常", "error"); }
   }
 
@@ -1239,15 +1325,13 @@
 
   function changeFeedPage(newPage) { renderFeed(globalFeedData, newPage); document.getElementById('tab-coach').scrollIntoView({ behavior: 'smooth' }); }
 
-  async function updateStatus(postId, status) {
-    showUIConfirm("更新日誌狀態", `確定標記為「${status}」嗎？`, "確定更新", "var(--primary)", async () => {
+  function updateStatus(postId, status) {
+    showUIConfirm("更新日誌狀態", `確定標記為「${status}」嗎？`, "確定更新", "var(--primary)", () => {
       const post = globalFeedData.find(p => p.PostID === postId);
       if(post) post.Status = status;
       renderFeed(globalFeedData, currentFeedPage);
-      try {
-        await api({ action: "updateStatus", postId: postId, status: status });
-        showToast("狀態已更新", "success"); backgroundSync();
-      } catch(e) { showToast("狀態更新失敗", "error"); }
+      showToast("狀態已更新", "success");
+      api({ action: "updateStatus", postId: postId, status: status }).catch(e => showToast("狀態更新失敗", "error"));
     });
   }
 
@@ -1267,11 +1351,9 @@
     
     const post = globalFeedData.find(p => p.PostID === postId);
     if (post) { post.AI_Summary = newSummary; post.Transcript = newTranscript; }
-    closeModals(); renderFeed(globalFeedData, currentFeedPage); showToast("日誌儲存中...", "success");
+    closeModals(); renderFeed(globalFeedData, currentFeedPage); showToast("日誌更新成功", "success");
     
-    api({action: "editPostBase", postId: postId, newSummary: newSummary, newTranscript: newTranscript})
-      .then(() => showToast("日誌更新成功", "success"))
-      .catch(e => { showToast("更新失敗，請重新整理", "error"); backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage)); });
+    api({action: "editPostBase", postId: postId, newSummary: newSummary, newTranscript: newTranscript}).catch(e => showToast("更新失敗，請重新整理", "error"));
   }
 
   function executeDeletePostBase(postId) {
@@ -1279,17 +1361,24 @@
       const index = globalFeedData.findIndex(p => p.PostID === postId);
       if (index !== -1) globalFeedData.splice(index, 1);
       renderFeed(globalFeedData, currentFeedPage); showToast("日誌已刪除", "success");
-      api({action: "deletePostBase", postId: postId}).catch(e => { showToast("刪除失敗", "error"); backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage)); });
+      api({action: "deletePostBase", postId: postId}).catch(e => showToast("刪除失敗", "error"));
     });
   }
 
-  async function submitCoachReply(postId) {
+  function submitCoachReply(postId) {
     const content = document.getElementById(`coach_reply_input_${postId}`).value.trim();
     if(!content) return showToast("回覆內容不可為空", "warning");
-    try {
-      await api({action: "submitCoachReply", postId: postId, replyContent: content});
-      showToast("回覆已成功追加寫入", "success"); backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage));
-    } catch(e) { showToast(e.message, "error"); }
+    
+    const post = globalFeedData.find(p => p.PostID === postId);
+    if (post) {
+      post.Coach_Reply = post.Coach_Reply ? post.Coach_Reply + "\n\n" + content : content;
+      post.Status = "已解決";
+    }
+    document.getElementById(`coach_reply_input_${postId}`).value = '';
+    renderFeed(globalFeedData, currentFeedPage);
+    showToast("回覆已成功追加寫入", "success");
+
+    api({action: "submitCoachReply", postId: postId, replyContent: content}).catch(e => showToast(e.message, "error"));
   }
 
   function openEditCoachReplyModal(postId, content) {
@@ -1305,19 +1394,17 @@
     
     const post = globalFeedData.find(p => p.PostID === postId);
     if (post) post.Coach_Reply = content;
-    closeModals(); renderFeed(globalFeedData, currentFeedPage); showToast("回覆總帳儲存中...", "success");
+    closeModals(); renderFeed(globalFeedData, currentFeedPage); showToast("歷史回覆總帳已成功覆寫更新", "success");
 
-    api({action: "editCoachReply", postId: postId, newContent: content})
-      .then(() => showToast("歷史回覆總帳已成功覆寫更新", "success"))
-      .catch(e => { showToast("更新失敗", "error"); backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage)); });
+    api({action: "editCoachReply", postId: postId, newContent: content}).catch(e => showToast("更新失敗", "error"));
   }
 
   function deleteCoachReply(postId) {
     showUIConfirm("清空教練回覆", "確定要徹底清空教練回覆大總帳嗎？\n此動作將刪除該儲存格內的所有歷史回覆與影音紀錄，無法復原。", "確認清空", "#ff3b30", () => {
       const post = globalFeedData.find(p => p.PostID === postId);
-      if (post) { post.Coach_Reply = ""; post.Status = "待回覆"; }
+      if (post) { post.Coach_Reply = ""; post.Status = "尚未解決"; }
       renderFeed(globalFeedData, currentFeedPage); showToast("教練回覆已清空", "success");
-      api({action: "deleteCoachReply", postId: postId}).catch(e => { showToast("清空失敗", "error"); backgroundSync().then(() => renderFeed(globalFeedData, currentFeedPage)); });
+      api({action: "deleteCoachReply", postId: postId}).catch(e => showToast("清空失敗", "error"));
     });
   }
 
@@ -1358,7 +1445,7 @@
     renderSchoolFeed(filteredPosts, 1);
   }
 
-  async function publishSchoolPost() {
+  function publishSchoolPost() {
     const text = document.getElementById('schoolPostContent').value.trim(); const ytUrl = document.getElementById('schoolYtUrl').value.trim();
     if(!text || !ytUrl) return showToast("請輸入教材描述並貼上 YouTube 網址", "warning");
     
@@ -1368,9 +1455,9 @@
     globalSchoolFeedData.unshift(newPost); filterSchoolFeed(); 
     document.getElementById('schoolPostContent').value = ''; document.getElementById('schoolYtUrl').value = ''; showToast("發布成功！", "success");
     
-    try { await api({ action: "publishSchoolPostYT", email: currentUser.email, content: text, ytUrl: ytUrl }); backgroundSync(); 
-    } catch(e) { showToast(e.message, "error"); globalSchoolFeedData.shift(); filterSchoolFeed(); } 
-    finally { btn.disabled = false; btn.innerHTML = '<i data-lucide="send" style="width:16px;"></i> 確定發布'; lucide.createIcons(); }
+    api({ action: "publishSchoolPostYT", email: currentUser.email, content: text, ytUrl: ytUrl })
+      .catch(e => { showToast(e.message, "error"); globalSchoolFeedData.shift(); filterSchoolFeed(); })
+      .finally(() => { btn.disabled = false; btn.innerHTML = '<i data-lucide="send" style="width:16px;"></i> 確定發布'; lucide.createIcons(); });
   }
 
   function renderSchoolFeed(items, page = 1) {
@@ -1488,7 +1575,7 @@
   function seekCustomPlayer(event, postId) { const player = ytPlayers[postId]; if(player && player.getDuration) { const container = event.currentTarget; const rect = container.getBoundingClientRect(); const clickX = event.clientX - rect.left; const percent = clickX / rect.width; player.seekTo(percent * player.getDuration(), true); } }
   function fullscreenCustomPlayer(postId) { const wrapper = document.getElementById('ytwrapper_' + postId); if (wrapper.requestFullscreen) { wrapper.requestFullscreen(); } else if (wrapper.webkitRequestFullscreen) { wrapper.webkitRequestFullscreen(); } }
 
-  async function toggleRecommend(postId) {
+  function toggleRecommend(postId) {
     if(postId.startsWith("TEMP_")) return showToast("發布處理中，請稍後再試", "warning");
     const post = globalSchoolFeedData.find(p => p.PostID === postId);
     if(!post) return;
@@ -1499,22 +1586,42 @@
     post.Recommendations = recs.join(',');
     
     filterSchoolFeed(); 
-    try { await api({ action: "toggleRecommend", email: currentUser.email, postId: postId }); } catch(e) { console.error(e); }
+    api({ action: "toggleRecommend", email: currentUser.email, postId: postId }).catch(e => console.error(e));
   }
 
-  async function submitSchoolComment(postId) {
+  function submitSchoolComment(postId) {
     if(postId.startsWith("TEMP_")) return showToast("發布處理中，請稍後再試", "warning");
     const input = document.getElementById(`comment_input_${postId}`); const text = input.value.trim();
     if (!text) return showToast("內容不可為空", "warning");
 
     const newComment = { PostID: "TEMP_C_" + Date.now(), ParentID: postId, Email: currentUser.email, AuthorCode: currentUser.email.split('@')[0], Timestamp: new Date().toLocaleString('zh-TW', {hour12:false}), Content: text, Type: "COMMENT" };
     globalSchoolFeedData.push(newComment); filterSchoolFeed(); input.value = ''; showToast("回覆成功", "success");
-    try { await api({ action: "addSchoolComment", email: currentUser.email, parentId: postId, content: text }); backgroundSync(); } catch(e) { showToast("寫入失敗", "error"); }
+    
+    api({ action: "addSchoolComment", email: currentUser.email, parentId: postId, content: text }).catch(e => showToast("寫入失敗", "error"));
   }
 
   function openEditModal(rowIndex, currentContent) { document.getElementById('editRowId').value = rowIndex; document.getElementById('editContentArea').value = currentContent; document.getElementById('editModal').classList.add('active'); }
-  async function saveEditPost() { const rowId = document.getElementById('editRowId').value; const newContent = document.getElementById('editContentArea').value; try { await api({ action: "editSchoolPost", rowIndex: rowId, email: currentUser.email, role: currentUser.role, newContent: newContent }); showToast("更新成功", "success"); closeModals(); backgroundSync().then(()=>filterSchoolFeed()); } catch(e) { showToast("更新失敗", "error"); } }
-  async function executeDelete(rowIndex) { showUIConfirm("刪除學堂課程", "確定要將這堂課程從系統徹底刪除嗎？\n刪除後無法還原。", "確定刪除", "#ff3b30", async () => { try { await api({ action: "deleteSchoolPost", rowIndex: rowIndex, email: currentUser.email, role: currentUser.role }); showToast("刪除成功", "success"); backgroundSync().then(()=>filterSchoolFeed()); } catch(e) { showToast("刪除失敗", "error"); } }); }
+  
+  function saveEditPost() { 
+      const rowId = document.getElementById('editRowId').value; 
+      const newContent = document.getElementById('editContentArea').value; 
+      
+      const post = globalSchoolFeedData.find(p => String(p.rowIndex) === String(rowId));
+      if (post) post.Content = newContent;
+      
+      closeModals(); filterSchoolFeed(); showToast("更新成功", "success");
+      api({ action: "editSchoolPost", rowIndex: rowId, email: currentUser.email, role: currentUser.role, newContent: newContent }).catch(e => showToast("更新失敗", "error")); 
+  }
+  
+  function executeDelete(rowIndex) { 
+      showUIConfirm("刪除學堂課程", "確定要將這堂課程從系統徹底刪除嗎？\n刪除後無法還原。", "確定刪除", "#ff3b30", () => { 
+          const index = globalSchoolFeedData.findIndex(p => String(p.rowIndex) === String(rowIndex));
+          if (index !== -1) globalSchoolFeedData.splice(index, 1);
+          filterSchoolFeed(); showToast("刪除成功", "success");
+          api({ action: "deleteSchoolPost", rowIndex: rowIndex, email: currentUser.email, role: currentUser.role }).catch(e => showToast("刪除失敗", "error")); 
+      }); 
+  }
+  
   function copyCode() { navigator.clipboard.writeText(document.getElementById('memberCodeTxt').innerText); showToast("代碼已複製", "success"); }
 
   // ================= 🔽 完美移植：敲碗解惑論壇邏輯 =================
@@ -1671,6 +1778,7 @@
     lucide.createIcons();
   }
 
+  // 🌟 論壇互動 (留言、+1) 的樂觀更新
   function submitForumInteraction(postID, type, colIndex, btn) {
     let post = forumData.find(p => p.postID === postID);
     if (!post) return;
@@ -1686,6 +1794,7 @@
         btn.className = !hasP1 ? "btn-brand w-100" : "btn-outline w-100";
         btn.innerHTML = `<i data-lucide="thumbs-up" style="width:16px; margin-right:4px;"></i> ${!hasP1 ? `已 +1 (${p1Count})` : `同問 +1 (${p1Count})`}`;
         lucide.createIcons();
+        
         api({ action: 'addForumPlusOne', postID: postID, email: currentUser.email }).catch(e => console.error(e));
         return; 
     }
@@ -1721,40 +1830,38 @@
         if(form) form.style.display = 'none';
     }
 
-    api({ action: 'addForumComment', postID: postID, email: currentUser.email, content: content, colIndex: colIndex === 'temp' ? null : colIndex })
-    .then(() => backgroundSync().then(() => renderForumPosts()))
-    .catch(e => showToast("留言失敗", "error"));
+    api({ action: 'addForumComment', postID: postID, email: currentUser.email, content: content, colIndex: colIndex === 'temp' ? null : colIndex }).catch(e => showToast("留言同步至伺服器失敗，但在重新整理前依然可見", "error"));
   }
 
-  async function submitForumPost() {
+  // 🌟 論壇發文的樂觀更新
+  function submitForumPost() {
     const nickname = document.getElementById('f_nickname').value.trim();
     const content = document.getElementById('f_content').value.trim();
     if (!nickname || !content) return showToast("暱稱與討論內容為必填！", "warning");
     
-    const btn = document.getElementById('btnSubmitForum'); 
-    btn.innerHTML = '<i data-lucide="loader" class="spin" style="width:16px;"></i> 發佈中...'; 
-    btn.disabled = true;
+    const now = new Date();
+    const timeStr = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const newPost = {
+        postID: "F_TEMP_" + Date.now(), timestamp: timeStr, postType: document.getElementById('f_postType').value,
+        email: currentUser.email, nickname: nickname, gender: document.getElementById('f_gender').value,
+        jobTitle: document.getElementById('f_job').value || '不透露', age: document.getElementById('f_age').value,
+        location: document.getElementById('f_location').value || '不透露', content: content,
+        plusOnes: [], comments: []
+    };
+    
+    forumData.unshift(newPost);
+    filterForumPosts(); 
 
-    try {
-        const payload = { postType: document.getElementById('f_postType').value, email: currentUser.email, nickname: nickname, gender: document.getElementById('f_gender').value, jobTitle: document.getElementById('f_job').value || '不透露', age: document.getElementById('f_age').value, location: document.getElementById('f_location').value || '不透露', content: content };
-        await api({ action: 'addForumPost', ...payload });
-        // 🔽 接著剛剛中斷的地方
-            document.getElementById('f_content').value = ''; 
-            document.getElementById('newForumPostWrapper').style.display = 'none';
-            showToast("發佈成功！", "success");
-            
-            // 重新同步並渲染
-            backgroundSync().then(() => renderForumPosts());
-        } catch (e) {
-            showToast("錯誤：" + e.message, "error");
-        } finally {
-            btn.innerHTML = '發佈文章';
-            btn.disabled = false;
-            lucide.createIcons();
-        }
+    document.getElementById('f_content').value = ''; 
+    document.getElementById('newForumPostWrapper').style.display = 'none';
+    showToast("發佈成功！", "success");
+
+    api({ 
+        action: 'addForumPost', postType: newPost.postType, email: newPost.email, nickname: newPost.nickname, 
+        gender: newPost.gender, jobTitle: newPost.jobTitle, age: newPost.age, location: newPost.location, content: newPost.content 
+    }).catch(e => console.error("伺服器同步失敗", e));
   }
 
-  // 🌟 全域點擊監聽器 (完美移植：用於點擊空白處自動收合論壇的輸入框與舊留言)
   document.addEventListener('click', function(e) {
       const isInsideCommentArea = e.target.closest('.bg-light');
       const isToggleButton = e.target.closest('button');
