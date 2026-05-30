@@ -22,8 +22,8 @@
 <div class="container">
   <div class="checkout-card">
     <div class="text-center mb-5">
-      <div class="d-inline-flex justify-content-center align-items-center mb-3" style="background: #1d1d1f; color: white; padding: 16px; border-radius: 20px;">
-        <i data-lucide="shopping-cart" style="width: 32px; height: 32px;"></i>
+      <div class="mb-4">
+        <img src="https://raw.githubusercontent.com/alwayslucky2hand-ops/growthx/main/202604_AI%E5%AD%B8%E9%99%A2growthx%E5%B2%B3logo.png" alt="GrowthX Logo" style="max-width: 200px; height: auto;">
       </div>
       <h2 class="fw-bold" id="courseTitle" style="letter-spacing: -1px;">載入課程資訊中...</h2>
       <p class="text-muted" id="courseSubtitle">請填寫以下資訊完成報名與繳費</p>
@@ -128,8 +128,11 @@
 <script>
   lucide.createIcons();
   
-  // ⚠️ 請替換為你實際的 GAS Web App URL
+  // ⚠️ 這裡的 GAS URL 已經與我們後端基線完全對齊，您可以視需求更新為新版部署網址
   const GAS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbx1IyvzO_Z47G8TnVzb5AoKRtui8AYjcj2Et07VpQQQcFl0K2U6Y-o-E-pwHJzxP6Pl/exec"; 
+  
+  // 雙棲環境探針 (偵測是否在 Google Apps Script 環境內執行)
+  const isGAS = typeof google !== 'undefined' && google.script;
   
   // 解析 URL 參數 (?plan=basic&ref=xxx)
   const urlParams = new URLSearchParams(window.location.search);
@@ -211,10 +214,17 @@
     document.getElementById('displayTotal').innerText = `$${total.toLocaleString()}`;
   }
 
-  // 透過 API 獲取可用日期
+  // 透過 API 獲取可用日期 (相容 Fetch 與 isGAS 雙棲架構)
   async function fetchAvailableDates() {
+    const select = document.getElementById('courseDate');
     try {
-      const select = document.getElementById('courseDate');
+      let dates = [];
+      
+      if (isGAS) {
+         // 在 GAS 環境，留作未來直接透過 google.script.run 溝通的擴充空間
+         // 目前為維持架構單純，統一走 fetch API Webhook 模式
+      }
+
       const response = await fetch(GAS_WEBAPP_URL, {
         method: 'POST',
         body: JSON.stringify({ action: "getAvailableCourseDates", plan: plan })
@@ -222,7 +232,7 @@
       const res = await response.json();
       
       if (res.status === 'success') {
-        const dates = res.data;
+        dates = res.data;
         select.innerHTML = '<option value="">請選擇報名日期...</option>';
         
         if (dates.length === 0) {
@@ -269,7 +279,7 @@
       taxId: document.getElementById('taxId').value,
       selectedDate: document.getElementById('courseDate').value,
       quantity: document.getElementById('quantity').value,
-      totalAmount: total // 🌟 精確讀取前端累加的最後金額
+      totalAmount: total
     };
 
     try {
@@ -280,7 +290,6 @@
       const res = await response.json();
       
       if (res.status === 'success' && res.data.url) {
-         // 🌟 成功拿到黑貓 PAY 給的網址，直接跳轉！
          alert(`訂單建立成功！單號：${res.data.orderId}\n金額：$${res.data.totalAmount.toLocaleString()}\n即將為您跳轉至黑貓 PAY 金流頁面...`);
          window.location.href = res.data.url; 
       } else {
